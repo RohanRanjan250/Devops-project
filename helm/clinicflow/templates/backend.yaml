@@ -25,7 +25,7 @@ spec:
           securityContext: {runAsUser: 70}
       containers:
         - name: backend
-          image: "{{ .Values.backend.image }}:{{ .Values.backend.tag }}"
+          image: "{{ .Values.backend.image }}:{{ required "set backend.tag to the commit SHA pushed by CI" .Values.backend.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports: [{containerPort: 8000, name: http}]
           env:

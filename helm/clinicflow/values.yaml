@@ -1,6 +1,6 @@
 backend:
   image: ghcr.io/rohanranjan250/clinicflow-backend
-  tag: latest            # CI overrides this with the Git commit SHA
+  tag: ""                # required: the Git commit SHA CI pushed (no "latest" tag exists)
   replicas: 2
   resources:
     requests: {cpu: 100m, memory: 128Mi}
@@ -8,7 +8,7 @@ backend:
 
 frontend:
   image: ghcr.io/rohanranjan250/clinicflow-frontend
-  tag: latest
+  tag: ""
   replicas: 2
   resources:
     requests: {cpu: 50m, memory: 32Mi}
