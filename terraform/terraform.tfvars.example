@@ -1,0 +1,10 @@
+# copy to terraform.tfvars (git-ignored) and adjust - never put AWS keys here
+aws_region          = "ap-south-1"
+environment         = "dev"
+cluster_name        = "clinicflow-eks"
+kubernetes_version  = "1.31"
+vpc_cidr            = "10.30.0.0/16"
+node_instance_types = ["t3.medium"]
+node_min_size       = 2
+node_desired_size   = 2
+node_max_size       = 4
