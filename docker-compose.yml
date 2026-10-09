@@ -1,0 +1,44 @@
+# Full local stack: docker compose up --build  ->  http://localhost:3000
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: clinicflow
+      POSTGRES_USER: clinicflow
+      POSTGRES_PASSWORD: clinicflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clinicflow -d clinicflow"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://clinicflow:clinicflow@postgres:5432/clinicflow
+    depends_on:
+      postgres:
+        condition: service_healthy   # wait until Postgres accepts connections, not just "started"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: on-failure
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:8080"
+
+volumes:
+  postgres-data:
