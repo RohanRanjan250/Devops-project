@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import Counter
 from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -29,6 +30,13 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
+# business metric: what the clinic is actually doing, not just HTTP traffic
+APPOINTMENT_EVENTS = Counter(
+    "clinicflow_appointments_total",
+    "Appointment lifecycle events",
+    ["event", "specialty"],
+)
 
 
 def to_out(a: Appointment) -> AppointmentOut:
@@ -58,6 +66,7 @@ def commit_or_conflict(db: Session) -> None:
         db.commit()
     except IntegrityError:
         db.rollback()
+        APPOINTMENT_EVENTS.labels(event="rejected_double_booking", specialty="any").inc()
         raise HTTPException(status_code=409, detail="Doctor already has an appointment in this slot")
 
 
@@ -129,16 +138,22 @@ def book_appointment(payload: AppointmentCreate, db: Session = Depends(get_db)):
     appt = Appointment(**payload.model_dump())
     db.add(appt)
     commit_or_conflict(db)
-    return to_out(get_appointment(db, appt.id))
+    booked = get_appointment(db, appt.id)
+    APPOINTMENT_EVENTS.labels(event="booked", specialty=booked.doctor.specialty).inc()
+    return to_out(booked)
 
 
 @app.put("/api/appointments/{appointment_id}", response_model=AppointmentOut)
 def update_appointment(appointment_id: int, payload: AppointmentUpdate, db: Session = Depends(get_db)):
     appt = get_appointment(db, appointment_id)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for key, value in changes.items():
         setattr(appt, key, value)
     commit_or_conflict(db)
-    return to_out(get_appointment(db, appointment_id))
+    updated = get_appointment(db, appointment_id)
+    if "status" in changes:
+        APPOINTMENT_EVENTS.labels(event=changes["status"].lower(), specialty=updated.doctor.specialty).inc()
+    return to_out(updated)
 
 
 @app.delete("/api/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
