@@ -1,0 +1,13 @@
+# Lab: selector matches no pod (typo in label) and wrong targetPort -> no endpoints
+# Investigate: kubectl get endpoints -n clinicflow ; kubectl get pods --show-labels
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-internal
+  namespace: clinicflow
+spec:
+  selector:
+    app: back-end
+  ports:
+    - port: 8000
+      targetPort: 8080

@@ -1,0 +1,18 @@
+# Lab: the image tag does not exist -> ErrImagePull / ImagePullBackOff
+# Investigate: kubectl get pods -n clinicflow ; kubectl describe pod ... (Events)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reports-worker
+  namespace: clinicflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: reports-worker}
+  template:
+    metadata:
+      labels: {app: reports-worker}
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/rohanranjan250/clinicflow-reports:v9.9.9-missing
