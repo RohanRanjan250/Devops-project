@@ -9,8 +9,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/clinicflow-backend
-  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/clinicflow-frontend
 
 jobs:
   # ---------- gate 1: tests + frontend build ----------
@@ -53,6 +51,11 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Image names (registry paths must be lowercase)
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "BACKEND_IMAGE=ghcr.io/$OWNER/clinicflow-backend" >> "$GITHUB_ENV"
+          echo "FRONTEND_IMAGE=ghcr.io/$OWNER/clinicflow-frontend" >> "$GITHUB_ENV"
 
       - name: Build images
         run: |
@@ -99,6 +102,11 @@ jobs:
       KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
     steps:
       - uses: actions/checkout@v4
+      - name: Image names (registry paths must be lowercase)
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "BACKEND_IMAGE=ghcr.io/$OWNER/clinicflow-backend" >> "$GITHUB_ENV"
+          echo "FRONTEND_IMAGE=ghcr.io/$OWNER/clinicflow-frontend" >> "$GITHUB_ENV"
       - name: Skip when no cluster is configured
         if: env.KUBE_CONFIG_DATA == ''
         run: echo "KUBE_CONFIG_DATA secret not set - skipping deploy (images are published to GHCR)."
