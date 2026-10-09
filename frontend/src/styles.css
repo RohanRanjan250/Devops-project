@@ -121,3 +121,8 @@ td.reason { color: var(--muted); max-width: 200px; }
   .layout { grid-template-columns: 1fr; }
   table { display: block; overflow-x: auto; }
 }
+
+/* keep names, phones and times on one line; only the reason column wraps */
+td b, td small { white-space: nowrap; }
+td { padding: 11px 14px; }
+th { padding: 10px 14px; }
