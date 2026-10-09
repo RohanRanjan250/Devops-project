@@ -1,0 +1,20 @@
+# helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#   -n monitoring --create-namespace -f monitoring/kube-prometheus-stack-values.yaml
+prometheus:
+  prometheusSpec:
+    # discover ServiceMonitors from every namespace (the ClinicFlow chart ships one)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    retention: 7d
+
+grafana:
+  enabled: true
+  adminPassword: clinicflow-admin   # change for any shared environment
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard     # loads the ClinicFlow dashboard ConfigMap from the chart
+      searchNamespace: ALL
+
+alertmanager:
+  enabled: false   # not used in this project; keeps the local footprint small
