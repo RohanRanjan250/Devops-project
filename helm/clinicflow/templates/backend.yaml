@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels: {{- include "clinicflow.labels" . | nindent 4 }}
+    app: backend
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels: {app: backend}
+  template:
+    metadata:
+      labels: {app: backend}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+      initContainers:
+        # don't start (and crash-loop) before PostgreSQL accepts connections
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
+          securityContext: {runAsUser: 70}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image }}:{{ .Values.backend.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports: [{containerPort: 8000, name: http}]
+          env:
+            - name: DB_USER
+              valueFrom: {secretKeyRef: {name: postgres-credentials, key: username}}
+            - name: DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: postgres-credentials, key: password}}
+            - name: DATABASE_URL
+              value: {{ include "clinicflow.databaseUrl" . | quote }}
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources: {{- toYaml .Values.backend.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # the frontend's nginx proxies /api to http://backend:8000
+  name: backend
+  labels: {{- include "clinicflow.labels" . | nindent 4 }}
+    app: backend
+spec:
+  type: ClusterIP
+  selector: {app: backend}
+  ports:
+    - {port: 8000, targetPort: http, name: http}

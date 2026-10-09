@@ -1,0 +1,8 @@
+apiVersion: v2
+name: clinicflow
+description: ClinicFlow - clinic appointment booking (FastAPI + React + PostgreSQL)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Rohan Ranjan (24BCS10428)

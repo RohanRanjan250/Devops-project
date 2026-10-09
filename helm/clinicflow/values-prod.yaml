@@ -1,0 +1,11 @@
+# EKS: images from GHCR (tag set by CI to the commit SHA), more headroom
+backend:
+  replicas: 3
+frontend:
+  replicas: 2
+ingress:
+  host: clinicflow.example.com
+hpa:
+  maxReplicas: 10
+postgres:
+  storage: 10Gi

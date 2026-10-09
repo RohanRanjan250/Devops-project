@@ -1,0 +1,44 @@
+backend:
+  image: ghcr.io/rohanranjan250/clinicflow-backend
+  tag: latest            # CI overrides this with the Git commit SHA
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+
+frontend:
+  image: ghcr.io/rohanranjan250/clinicflow-frontend
+  tag: latest
+  replicas: 2
+  resources:
+    requests: {cpu: 50m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+
+imagePullPolicy: IfNotPresent
+imagePullSecrets: []
+
+postgres:
+  image: postgres:16-alpine
+  database: clinicflow
+  username: clinicflow
+  password: clinicflow   # override in real environments (--set / external secret)
+  storage: 1Gi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: clinicflow.local
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  grafanaDashboard:
+    enabled: true

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels: {{- include "clinicflow.labels" . | nindent 4 }}
+    app: frontend
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels: {app: frontend}
+  template:
+    metadata:
+      labels: {app: frontend}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: frontend
+          image: "{{ .Values.frontend.image }}:{{ .Values.frontend.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports: [{containerPort: 8080, name: http}]
+          readinessProbe: {httpGet: {path: /, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /, port: http}, initialDelaySeconds: 10, periodSeconds: 20}
+          resources: {{- toYaml .Values.frontend.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels: {{- include "clinicflow.labels" . | nindent 4 }}
+    app: frontend
+spec:
+  type: ClusterIP
+  selector: {app: frontend}
+  ports:
+    - {port: 80, targetPort: http, name: http}

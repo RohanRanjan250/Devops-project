@@ -1,0 +1,9 @@
+# Local kind cluster: images built locally and loaded with `kind load docker-image`
+backend:
+  image: clinicflow-backend
+  tag: dev
+frontend:
+  image: clinicflow-frontend
+  tag: dev
+ingress:
+  host: clinicflow.local
