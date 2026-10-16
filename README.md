@@ -251,12 +251,20 @@ the backend listens on 8000. Fixing both gives 6 endpoints and `/health` = UP.
 
 ---
 
-## Status: what still needs a real AWS account
+## Status: AWS apply
 
 Everything above ran for real. GitHub Actions and GHCR are real (public repo and public packages).
-Kubernetes ran on a local **kind** cluster. The one thing not done is **applying the Terraform to
-AWS**: that needs AWS credentials, and EKS + NAT + 2× t3.medium is roughly US$0.25/hour. With an
-account:
+Kubernetes ran on a local **kind** cluster.
+
+The one step not completed is **applying the Terraform to AWS**. I created an AWS account for
+this, but it was set up under AWS's new "Projects" experience. In that setup, an AWS-managed
+organization service control policy explicitly denies EC2/VPC, EKS, KMS and CloudWatch Logs,
+even for an IAM user with `AdministratorAccess` and after upgrading to the Paid plan.
+Removing that policy requires "Activate advanced features", which failed on AWS's side when I
+tried it. The Terraform code is complete, and `fmt` / `validate` / `plan` (54 resources) are
+verified. EKS + NAT + 2× t3.medium costs roughly US$0.25/hour.
+
+With an account where EC2/EKS are allowed:
 
 ```bash
 aws configure                      # or SSO
