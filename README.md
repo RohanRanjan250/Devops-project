@@ -1,6 +1,6 @@
 # ClinicFlow — Clinic Appointment Desk
 
-**Rohan Ranjan · 24BCS10428 · DevOps Final Capstone (Session 21)**
+**Rohan Ranjan · 24BCS10428 · DevOps Final Capstone Project**
 
 ClinicFlow is the front-desk system of a small multi-specialty clinic. Receptionists book patients
 with a doctor for a time slot, check them in when they arrive, mark the visit completed, or cancel
@@ -179,10 +179,10 @@ terraform destroy          # when done - NAT gateway + nodes cost money
 
 ![terraform plan](docs/screenshots/09-terraform-plan.png)
 
-`fmt` and `validate` pass, and `plan` = **54 resources to add**. Note: this plan was produced
-without an AWS account, against a local AWS API emulator (LocalStack) through a temporary,
-uncommitted provider override. **Apply, the AWS Console screenshots and destroy still need a real
-AWS account** (see "Status" at the end).
+`fmt` and `validate` pass, and `plan` = **54 resources to add**. Because my AWS account denies
+EC2/EKS API calls (see "AWS deployment attempt" at the end), this plan was produced against a
+local AWS API emulator (LocalStack) through a temporary, uncommitted provider override.
+**Apply, the AWS Console screenshots and destroy were blocked by that account restriction.**
 
 ## M8 — Kubernetes + Helm
 
@@ -251,29 +251,60 @@ the backend listens on 8000. Fixing both gives 6 endpoints and `/health` = UP.
 
 ---
 
-## Status: AWS apply
+## AWS deployment attempt
 
-Everything above ran for real. GitHub Actions and GHCR are real (public repo and public packages).
-Kubernetes ran on a local **kind** cluster.
+Everything above ran for real. GitHub Actions and GHCR are real (public repo and public packages),
+and Kubernetes ran on a local **kind** cluster. The step I could not complete is applying the
+Terraform to AWS. This is what I did and what AWS returned.
 
-The one step not completed is **applying the Terraform to AWS**. I created an AWS account for
-this, but it was set up under AWS's new "Projects" experience. In that setup, an AWS-managed
-organization service control policy explicitly denies EC2/VPC, EKS, KMS and CloudWatch Logs,
-even for an IAM user with `AdministratorAccess` and after upgrading to the Paid plan.
-Removing that policy requires "Activate advanced features", which failed on AWS's side when I
-tried it. The Terraform code is complete, and `fmt` / `validate` / `plan` (54 resources) are
-verified. EKS + NAT + 2× t3.medium costs roughly US$0.25/hour.
+**1. Configured the AWS CLI with an IAM user that has full admin rights**
 
-With an account where EC2/EKS are allowed:
+```text
+$ aws configure          # region ap-south-1
+$ aws sts get-caller-identity
+Account: 985937786755    Arn: arn:aws:iam::985937786755:user/rohan-cli
+$ aws iam list-attached-user-policies --user-name rohan-cli
+PolicyName: AdministratorAccess
+```
+
+**2. Every EC2 / EKS call was denied by an AWS Organizations policy, in every region**
+
+```text
+$ aws eks list-clusters --region ap-south-1
+An error occurred (AccessDeniedException) when calling the ListClusters operation:
+User: arn:aws:iam::985937786755:user/rohan-cli is not authorized to perform: eks:ListClusters
+... with an explicit deny in a service control policy:
+arn:aws:organizations::416503863320:policy/o-wsqvyrdc7r/service_control_policy/p-dt1toy28
+
+$ aws ec2 describe-vpcs --region ap-south-1
+An error occurred (UnauthorizedOperation) when calling the DescribeVpcs operation:
+... not authorized to perform: ec2:DescribeVpcs with an explicit deny in a service control policy
+```
+
+The same denial came back for KMS and CloudWatch Logs (both needed by the EKS module) and in
+`us-east-1`, `us-west-2` and `eu-west-1` as well. An explicit deny in a service control policy
+overrides IAM permissions, so `AdministratorAccess` doesn't help. Because of this,
+`terraform apply` cannot create the VPC or the EKS cluster: its very first AWS calls are denied.
+
+**3. What I tried to remove the block**
+
+- Upgraded the account from the Free plan to the **Paid plan** (`aws freetier get-account-plan-state` → `PAID / ACTIVE`). The deny stayed.
+- Created **new access keys** and re-configured the CLI. Same result, because the policy applies to the whole account.
+- The policy belongs to the AWS-managed organization of the new "Projects" account experience. Removing it requires **"Activate advanced features"** in the console, which failed every time with *"Your previous activation attempt failed. Please try again."*
+- Re-checked over more than a week. The deny never lifted.
+
+Screenshots of these errors are kept with my submission.
+
+**What is ready.** The Terraform code is complete. `fmt`, `validate` and `plan` (54 resources:
+VPC, 2 public + 2 private subnets, NAT, EKS cluster, managed node group, IAM) are verified, see
+M7 above. On an account without this restriction, the remaining steps are:
 
 ```bash
-aws configure                      # or SSO
-cd terraform && terraform apply    # ~15 min
+cd terraform && terraform apply                                   # ~15 min
 aws eks update-kubeconfig --region ap-south-1 --name clinicflow-eks
-# take Console screenshots: VPC > Your VPCs (clinicflow-vpc), EKS > Clusters (clinicflow-eks, Active, node group)
 kubectl apply -f ../k8s/namespace.yaml
 helm upgrade --install clinicflow ../helm/clinicflow -n clinicflow --set backend.tag=<sha> --set frontend.tag=<sha>
-terraform destroy                  # same day
+terraform destroy
 ```
 
 For the pipeline to deploy to EKS by itself, add the kubeconfig as the repository secret
